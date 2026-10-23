@@ -69,3 +69,17 @@ def test_final_transcriber_failure_reports_error(client, monkeypatch):
         ws.send_bytes(np.zeros(16000, dtype=np.int16).tobytes())
         ws.send_json({'type': 'stop'})
         assert ws.receive_json()['type'] == 'error'
+
+
+def test_model_failure_exposes_stage_but_not_secrets(client, monkeypatch):
+    from app.stt import TranscriptionError
+
+    def fail(audio, lang):
+        raise TranscriptionError('MODEL_LOAD', PermissionError('/private/secret/token'))
+
+    monkeypatch.setattr(routes_ws, 'transcribe', fail)
+    with client.websocket_connect('/ws/transcribe') as ws:
+        ws.send_bytes(np.zeros(32000, dtype=np.int16).tobytes())
+        message = ws.receive_json()
+        assert message['code'] == 'MODEL_LOAD/PermissionError'
+        assert 'secret' not in json.dumps(message)

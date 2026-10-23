@@ -47,6 +47,13 @@ def get_model():
     return _model
 
 
+class TranscriptionError(RuntimeError):
+    def __init__(self, stage: str, cause: Exception):
+        self.stage = stage
+        self.failure_type = type(cause).__name__
+        super().__init__(f"{stage} failed")
+
+
 def transcribe(audio: np.ndarray, language: str | None) -> tuple[str, str | None]:
     """Transcribe mono float32 audio sampled at 16 kHz.
 
@@ -55,7 +62,17 @@ def transcribe(audio: np.ndarray, language: str | None) -> tuple[str, str | None
     if audio.size < MIN_SAMPLES:
         return "", None
 
-    model = get_model()
+    try:
+        model = get_model()
+    except Exception as exc:
+        raise TranscriptionError("MODEL_LOAD", exc) from exc
+    try:
+        return _transcribe_audio(model, audio, language)
+    except Exception as exc:
+        raise TranscriptionError("AUDIO_INFERENCE", exc) from exc
+
+
+def _transcribe_audio(model, audio, language):
     with _infer_lock:
         from faster_whisper.vad import collect_chunks, get_speech_timestamps
 

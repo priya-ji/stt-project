@@ -25,7 +25,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from .config import settings
 from .database import SessionLocal
 from .models import Transcription
-from .stt import SAMPLE_RATE, transcribe
+from .stt import SAMPLE_RATE, TranscriptionError, transcribe
 
 router = APIRouter()
 
@@ -54,12 +54,17 @@ async def transcribe_ws(ws: WebSocket, lang: str | None = None):
         await _transcribe_session(ws, lang)
     except WebSocketDisconnect:
         pass
-    except Exception:
-        logging.getLogger(__name__).exception("Transcription session failed")
+    except Exception as exc:
+        code = exc.stage if isinstance(exc, TranscriptionError) else "SESSION"
+        failure_type = exc.failure_type if isinstance(exc, TranscriptionError) else type(exc).__name__
+        # Class names and fixed stage codes contain no credentials or server paths.
+        diagnostic = f"{code}/{failure_type}"
+        logging.getLogger(__name__).exception("Transcription session failed [%s]", diagnostic)
         with suppress(Exception):
             await ws.send_json({
                 "type": "error",
-                "message": "Transcription failed. Please try again. If it continues, check the server logs.",
+                "code": diagnostic,
+                "message": f"Transcription failed ({diagnostic}). Please share this code to diagnose the server issue.",
             })
             await ws.close(code=1011)
 
