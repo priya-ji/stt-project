@@ -47,12 +47,22 @@ def transcribe(audio: np.ndarray, language: str | None) -> tuple[str, str | None
 
     model = get_model()
     with _infer_lock:
+        from faster_whisper.vad import collect_chunks, get_speech_timestamps
+
+        # faster-whisper 1.0.3 crashes during auto language detection when
+        # its VAD removes the entire window. Filter once and handle silence.
+        speech = get_speech_timestamps(audio)
+        if not speech:
+            return "", None
+        audio = collect_chunks(audio, speech)
+        if audio.size == 0:
+            return "", None
         segments, info = model.transcribe(
             audio,
             language=language or None,
             task="transcribe",
             beam_size=1,            # greedy decoding: fastest, good enough for live text
-            vad_filter=True,        # skip silence
+            vad_filter=False,       # already filtered above
             initial_prompt=settings.initial_prompt,
             condition_on_previous_text=False,
         )

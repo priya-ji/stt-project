@@ -16,6 +16,9 @@
   let processor = null;
   let mute = null;
   let recording = false;
+  let busy = false;
+  let finished = false;
+  let finalTimeout = null;
   let timerId = null;
   let startedAt = 0;
   let confirmedText = "";
@@ -133,15 +136,21 @@
 
   // ---------- Recording flow ----------
   async function start() {
+    if (busy) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus("Microphone needs HTTPS (or localhost).");
       return;
     }
+    busy = true;
+    finished = false;
+    micBtn.disabled = true;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
     } catch {
+      busy = false;
+      micBtn.disabled = false;
       setStatus("Microphone access was denied or is unavailable.");
       return;
     }
@@ -157,6 +166,7 @@
 
     ws.onopen = () => {
       setupAudioGraph();
+      micBtn.disabled = false;
       setRecording(true);
       startTimer();
       setStatus("Listening… speak in Hindi, English, or both.");
@@ -164,13 +174,13 @@
     ws.onmessage = onMessage;
     ws.onerror = () => setStatus("Could not reach the transcription server.");
     ws.onclose = () => {
-      if (recording) {
-        // Server went away mid-recording.
-        teardownAudio();
-        stopTimer();
-        setRecording(false);
-        setStatus("Connection closed. Your text so far is shown above.");
-      }
+      clearTimeout(finalTimeout);
+      teardownAudio();
+      stopTimer();
+      setRecording(false);
+      busy = false;
+      micBtn.disabled = false;
+      if (!finished) setStatus("Connection closed before transcription finished. Please try again.");
     };
   }
 
@@ -178,7 +188,13 @@
     teardownAudio();
     stopTimer();
     setRecording(false);
+    micBtn.disabled = true;
     setStatus("Processing the last words…");
+    finalTimeout = setTimeout(() => {
+      finished = true;
+      setStatus("Transcription timed out. Please try again.");
+      if (ws) ws.close();
+    }, 120000);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "stop" }));
@@ -195,6 +211,8 @@
       pendingText = msg.pending;
       renderTranscript();
     } else if (msg.type === "final") {
+      finished = true;
+      clearTimeout(finalTimeout);
       confirmedText = msg.text;
       pendingText = "";
       renderTranscript();
@@ -203,6 +221,11 @@
           ? `Saved as transcription #${msg.id}. Open the Dashboard to edit or delete it.`
           : "No speech was detected."
       );
+      ws.close();
+    } else if (msg.type === "error") {
+      finished = true;
+      clearTimeout(finalTimeout);
+      setStatus(msg.message || "Transcription failed. Please try again.");
       ws.close();
     }
   }
@@ -228,7 +251,7 @@
   });
 
   clearBtn.addEventListener("click", () => {
-    if (recording) return;
+    if (busy) return;
     confirmedText = "";
     pendingText = "";
     renderTranscript();

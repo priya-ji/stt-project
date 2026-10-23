@@ -15,6 +15,7 @@ Server -> client
 
 import asyncio
 import json
+import logging
 from contextlib import suppress
 from datetime import datetime
 
@@ -49,6 +50,21 @@ def _save(text: str, language: str | None, duration: float) -> int | None:
 @router.websocket("/ws/transcribe")
 async def transcribe_ws(ws: WebSocket, lang: str | None = None):
     await ws.accept()
+    try:
+        await _transcribe_session(ws, lang)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logging.getLogger(__name__).exception("Transcription session failed")
+        with suppress(Exception):
+            await ws.send_json({
+                "type": "error",
+                "message": "Transcription failed. Please try again. If it continues, check the server logs.",
+            })
+            await ws.close(code=1011)
+
+
+async def _transcribe_session(ws: WebSocket, lang: str | None):
     language = None if lang in (None, "", "auto") else lang
 
     tick = int(settings.partial_interval_sec * SAMPLE_RATE)

@@ -45,3 +45,27 @@ def test_empty_session_saves_nothing(client, monkeypatch):
         final = ws.receive_json()
     assert final["id"] is None
     assert client.get("/api/transcriptions").json()["total"] == 0
+
+
+def test_transcriber_failure_reports_error(client, monkeypatch):
+    def fail(audio, lang):
+        raise RuntimeError('private server detail')
+
+    monkeypatch.setattr(routes_ws, 'transcribe', fail)
+    with client.websocket_connect('/ws/transcribe') as ws:
+        ws.send_bytes(np.zeros(32000, dtype=np.int16).tobytes())
+        message = ws.receive_json()
+        assert message['type'] == 'error'
+        assert 'private server detail' not in message['message']
+    assert client.get('/api/transcriptions').json()['total'] == 0
+
+
+def test_final_transcriber_failure_reports_error(client, monkeypatch):
+    def fail(audio, lang):
+        raise RuntimeError('failed')
+
+    monkeypatch.setattr(routes_ws, 'transcribe', fail)
+    with client.websocket_connect('/ws/transcribe') as ws:
+        ws.send_bytes(np.zeros(16000, dtype=np.int16).tobytes())
+        ws.send_json({'type': 'stop'})
+        assert ws.receive_json()['type'] == 'error'
