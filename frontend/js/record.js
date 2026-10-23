@@ -23,6 +23,8 @@
   let startedAt = 0;
   let confirmedText = "";
   let pendingText = "";
+  let sentSamples = 0;
+  let peakLevel = 0;
 
   // ---------- UI helpers ----------
   function setStatus(message) {
@@ -101,20 +103,20 @@
   }
 
   function setupAudioGraph() {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.resume();
     const inRate = audioCtx.sampleRate;
 
     source = audioCtx.createMediaStreamSource(stream);
-    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    processor = new AudioWorkletNode(audioCtx, "microphone-pcm");
     mute = audioCtx.createGain();
     mute.gain.value = 0; // keeps the processor running without playing the mic back
 
-    processor.onaudioprocess = (event) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const input = event.inputBuffer.getChannelData(0);
+    processor.port.onmessage = (event) => {
+      if (!recording || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const input = event.data;
+      for (const sample of input) peakLevel = Math.max(peakLevel, Math.abs(sample));
       const samples = inRate === TARGET_RATE ? input : downsample(input, inRate, TARGET_RATE);
       ws.send(floatTo16BitPCM(samples));
+      sentSamples += samples.length;
     };
 
     source.connect(processor);
@@ -124,12 +126,13 @@
 
   function teardownAudio() {
     if (processor) {
-      processor.onaudioprocess = null;
+      processor.port.onmessage = null;
+      processor.port.close();
       processor.disconnect();
     }
     if (source) source.disconnect();
     if (mute) mute.disconnect();
-    if (audioCtx) audioCtx.close();
+    if (audioCtx) audioCtx.close().catch(() => {});
     if (stream) stream.getTracks().forEach((track) => track.stop());
     processor = source = mute = audioCtx = stream = null;
   }
@@ -143,15 +146,24 @@
     }
     busy = true;
     finished = false;
+    sentSamples = 0;
+    peakLevel = 0;
     micBtn.disabled = true;
+    setStatus("Starting microphone…");
     try {
+      // Resume during the click gesture, before microphone/network awaits.
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: TARGET_RATE });
+      await audioCtx.resume();
+      await audioCtx.audioWorklet.addModule("/js/pcm-worklet.js");
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
-    } catch {
+      if (audioCtx.state !== "running") throw new Error("Audio is suspended");
+    } catch (error) {
+      teardownAudio();
       busy = false;
       micBtn.disabled = false;
-      setStatus("Microphone access was denied or is unavailable.");
+      setStatus(`Could not start microphone: ${error.message}. Check microphone permissions and try again.`);
       return;
     }
 
@@ -165,7 +177,14 @@
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => {
-      setupAudioGraph();
+      try {
+        setupAudioGraph();
+      } catch (error) {
+        finished = true;
+        setStatus(`Could not capture microphone audio: ${error.message}`);
+        ws.close();
+        return;
+      }
       micBtn.disabled = false;
       setRecording(true);
       startTimer();
@@ -219,7 +238,13 @@
       setStatus(
         msg.id
           ? `Saved as transcription #${msg.id}. Open the Dashboard to edit or delete it.`
-          : "No speech was detected."
+          : sentSamples === 0
+            ? "No microphone audio was captured. Check your microphone input and permissions."
+            : sentSamples < TARGET_RATE / 2
+              ? "Recording was too short. Speak for a few seconds before pressing Stop."
+              : peakLevel < 0.001
+                ? "Your microphone is silent. Check that it is unmuted and the correct input is selected."
+                : "Audio received, but no speech was recognized. Try speaking clearly and selecting Hindi or English."
       );
       ws.close();
     } else if (msg.type === "error") {
