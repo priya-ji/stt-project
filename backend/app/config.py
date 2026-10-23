@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     whisper_model: str = "base"
     whisper_device: str = "cpu"          # "cpu" or "cuda"
     whisper_compute_type: str = "int8"   # "int8" on CPU, "float16" on GPU
+    whisper_download_root: str | None = None  # Vercel defaults to its temporary directory
 
     # Biases Whisper towards Hinglish (Hindi + English mixed) speech.
     initial_prompt: str = (

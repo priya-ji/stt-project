@@ -5,7 +5,10 @@ Hindi, English and mixed Hinglish speech without any paid API.
 """
 
 import logging
+import os
+import tempfile
 import threading
+from pathlib import Path
 
 import numpy as np
 
@@ -25,6 +28,12 @@ def get_model():
     global _model
     with _load_lock:
         if _model is None:
+            download_root = settings.whisper_download_root
+            if os.environ.get("VERCEL") == "1":
+                # Serverless deployments cannot write to the normal home cache.
+                cache_root = Path(tempfile.gettempdir()) / "stt-model-cache"
+                download_root = download_root or str(cache_root / "hub")
+                os.environ.setdefault("HF_XET_CACHE", str(cache_root / "xet"))
             from faster_whisper import WhisperModel  # imported lazily so tests run without it
 
             log.info("Loading Whisper model '%s' (first run downloads it)...", settings.whisper_model)
@@ -32,6 +41,7 @@ def get_model():
                 settings.whisper_model,
                 device=settings.whisper_device,
                 compute_type=settings.whisper_compute_type,
+                download_root=download_root,
             )
             log.info("Whisper model loaded.")
     return _model
