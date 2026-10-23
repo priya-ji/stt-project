@@ -1,3 +1,5 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +10,10 @@ class Settings(BaseSettings):
 
     # SQLite for local dev. For production use PostgreSQL, e.g.
     # postgresql+psycopg2://user:password@host:5432/dbname
-    database_url: str = "sqlite:///./transcriptions.db"
+    database_url: str = "sqlite:////tmp/transcriptions.db" if os.getenv("VERCEL") else "sqlite:///./transcriptions.db"
+
+    hf_token: str | None = None
+    hf_asr_model: str = "openai/whisper-large-v3"
 
     # Open-source Whisper model: tiny | base | small | medium | large-v3
     whisper_model: str = "base"

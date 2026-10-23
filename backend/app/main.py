@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .routes_audio import router as audio_router
 from .config import settings
 from .database import init_db
 from .routes_transcriptions import router as transcriptions_router
@@ -35,11 +37,14 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "whisper_model": settings.whisper_model}
+    return {"status": "ok", "whisper_model": settings.whisper_model,
+            "transport": "http" if settings.hf_token or os.getenv("VERCEL") else "websocket",
+            "hosted_configured": bool(settings.hf_token)}
 
 
 app.include_router(transcriptions_router)
 app.include_router(ws_router)
+app.include_router(audio_router)
 
 # Serve the frontend from the same server (mounted last so /api and /ws routes win).
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

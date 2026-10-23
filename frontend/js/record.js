@@ -10,6 +10,8 @@
 
   const TARGET_RATE = 16000; // the server expects 16 kHz audio
   let ws = null;
+  let useHttp = false;
+  let chunks = [];
   let stream = null;
   let audioCtx = null;
   let source = null;
@@ -111,12 +113,16 @@
     mute.gain.value = 0; // keeps the processor running without playing the mic back
 
     processor.port.onmessage = (event) => {
-      if (!recording || !ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!recording) return;
+      if (!useHttp && (!ws || ws.readyState !== WebSocket.OPEN)) return;
       const input = event.data;
       for (const sample of input) peakLevel = Math.max(peakLevel, Math.abs(sample));
-      const samples = inRate === TARGET_RATE ? input : downsample(input, inRate, TARGET_RATE);
-      ws.send(floatTo16BitPCM(samples));
+      let samples = inRate === TARGET_RATE ? input : downsample(input, inRate, TARGET_RATE);
+      if (useHttp) samples = samples.subarray(0, TARGET_RATE * 60 - sentSamples);
+      if (useHttp) chunks.push(floatTo16BitPCM(samples));
+      else ws.send(floatTo16BitPCM(samples));
       sentSamples += samples.length;
+      if (useHttp && sentSamples >= TARGET_RATE * 60) stop();
     };
 
     source.connect(processor);
@@ -148,12 +154,20 @@
     finished = false;
     sentSamples = 0;
     peakLevel = 0;
+    chunks = [];
     micBtn.disabled = true;
     setStatus("Starting microphone…");
     try {
       // Resume during the click gesture, before microphone/network awaits.
       audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: TARGET_RATE });
       await audioCtx.resume();
+      const health = await fetch("/api/health", { signal: AbortSignal.timeout(10000) });
+      if (!health.ok) throw new Error("The transcription server is unavailable");
+      const config = await health.json();
+      useHttp = config.transport === "http";
+      if (useHttp && !config.hosted_configured) {
+        throw new Error("Set HF_TOKEN in Vercel for this environment and redeploy");
+      }
       await audioCtx.audioWorklet.addModule("/js/pcm-worklet.js");
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -171,6 +185,22 @@
     pendingText = "";
     renderTranscript();
     timerEl.textContent = "00:00";
+
+    if (useHttp) {
+      try {
+        setupAudioGraph();
+        micBtn.disabled = false;
+        setRecording(true);
+        startTimer();
+        setStatus("Recording… press Stop to transcribe (maximum 60 seconds; language detected automatically).");
+      } catch (error) {
+        teardownAudio();
+        busy = false;
+        micBtn.disabled = false;
+        setStatus(`Could not capture audio: ${error.message}`);
+      }
+      return;
+    }
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     ws = new WebSocket(`${protocol}://${location.host}/ws/transcribe?lang=${encodeURIComponent(langSel.value)}`);
@@ -209,6 +239,10 @@
     setRecording(false);
     micBtn.disabled = true;
     setStatus("Processing the last words…");
+    if (useHttp) {
+      uploadRecording();
+      return;
+    }
     finalTimeout = setTimeout(() => {
       finished = true;
       setStatus("Transcription timed out. Please try again.");
@@ -219,6 +253,32 @@
       ws.send(JSON.stringify({ type: "stop" }));
     } else if (ws) {
       ws.close();
+    }
+  }
+
+  async function uploadRecording() {
+    try {
+      const response = await fetch(`/api/audio?lang=${encodeURIComponent(langSel.value)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: new Blob(chunks, { type: "application/octet-stream" }),
+        signal: AbortSignal.timeout(60000),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : `Transcription failed (${response.status}).`);
+      if (typeof result.text !== "string") throw new Error("The server returned an invalid transcript.");
+      confirmedText = result.text;
+      pendingText = "";
+      renderTranscript();
+      setStatus(result.warning || (result.id
+        ? `Saved as transcription #${result.id}. Open the Dashboard to edit or delete it.`
+        : "No speech was recognized. Check your microphone and try again."));
+    } catch (error) {
+      setStatus(error.name === "TimeoutError" ? "Transcription timed out. Please try a shorter recording." : error.message);
+    } finally {
+      chunks = [];
+      busy = false;
+      micBtn.disabled = false;
     }
   }
 

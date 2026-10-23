@@ -1,3 +1,26 @@
+## Vercel hosted transcription
+
+Set `HF_TOKEN` to a Hugging Face token with **Make calls to Inference Providers**
+permission in the deployment's environment (Production or Preview), then deploy
+this code. `HF_ASR_MODEL` defaults to `openai/whisper-large-v3`; the model must
+have an available ASR inference provider for your account. Provider credits may
+be required. Never commit tokens or put them in frontend JavaScript.
+
+On Vercel, recording uses HTTP: record up to 60 seconds, then press Stop to
+upload audio for transcription. Language is automatically detected. The browser
+shows provider errors and stops waiting after 60 seconds. Audio is sent to the
+hosted provider. Local installations without `HF_TOKEN` retain the WebSocket
+streaming mode and require `backend/requirements.txt` (including faster-whisper).
+The root `requirements.txt` is for hosted deployment and omits local Whisper.
+
+Set `DATABASE_URL` to a persistent PostgreSQL database for dashboard history.
+Vercel's default SQLite fallback is under `/tmp` and is temporary, instance-local
+storage: recordings can disappear between invocations. If saving fails, the
+transcript is still displayed so it can be copied.
+
+Validation: `python -m pytest -q -c backend/pytest.ini backend/tests` and
+`node --test frontend/tests/record.test.cjs`.
+
 # Speech to Text · Real-time Multilingual Transcription
 
 Speak in Hindi, English, or a mix of both (Hinglish) and watch the transcript appear live.
