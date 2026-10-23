@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Speech to Text · Live</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🎙️ Speech to Text</div>
+    <nav>
+      <a href="/" class="active">Record</a>
+      <a href="/dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="card record-card">
+      <label class="field">
+        <span>Language</span>
+        <select id="lang">
+          <option value="auto">Auto (Hinglish / mixed)</option>
+          <option value="hi">Hindi</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+
+      <div class="mic-wrap">
+        <button id="micBtn" class="mic" aria-label="Start recording">🎤</button>
+        <div id="timer" class="timer">00:00</div>
+      </div>
+
+      <p id="status" class="status">Press the mic and speak. Mix Hindi and English freely.</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Live transcript</h2>
+        <div class="actions">
+          <button id="copyBtn" class="btn ghost">Copy</button>
+          <button id="speakBtn" class="btn ghost">🔊 Speak</button>
+          <button id="clearBtn" class="btn ghost">Clear</button>
+        </div>
+      </div>
+      <div id="transcript" class="transcript">
+        <span class="placeholder">Your words will appear here…</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/record.js"></script>
+</body>
+</html>

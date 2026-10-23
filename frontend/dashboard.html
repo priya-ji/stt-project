@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Speech to Text · Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🎙️ Speech to Text</div>
+    <nav>
+      <a href="/">Record</a>
+      <a href="/dashboard.html" class="active">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section id="stats" class="stats"></section>
+
+    <section class="card">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search title or text…" />
+        <button id="newBtn" class="btn primary">+ New transcription</button>
+      </div>
+
+      <div id="list" class="list"></div>
+
+      <div class="pager">
+        <button id="prevBtn" class="btn ghost">← Prev</button>
+        <span id="pageInfo"></span>
+        <button id="nextBtn" class="btn ghost">Next →</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Create / edit dialog -->
+  <dialog id="editor">
+    <form id="editForm" class="editor-form">
+      <h2 id="editorTitle">New transcription</h2>
+
+      <label class="field">
+        <span>Title</span>
+        <input name="title" maxlength="200" required />
+      </label>
+
+      <label class="field">
+        <span>Language</span>
+        <select name="language">
+          <option value="">Not set</option>
+          <option value="hi">Hindi</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Transcript</span>
+        <textarea name="text" rows="10"></textarea>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" id="cancelBtn" class="btn ghost">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>
