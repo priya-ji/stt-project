@@ -1,3 +1,18 @@
+## Live site: browser speech recognition
+
+The recording page uses the browser's SpeechRecognition API. No Hugging Face
+credits or token are required for this page. Use a supported browser (Chrome is
+recommended), allow microphone access, select Hindi or English, and press Stop
+to save final text to the dashboard. There is no automatic language detection;
+Hindi–English mixing accuracy depends on the browser service. Audio may be
+processed remotely by the browser vendor and an internet connection may be needed.
+Unsupported browsers display a message rather than falling back to a paid API.
+Database saving failures leave the transcript available to copy.
+
+The HTTP Hugging Face endpoint and local Whisper WebSocket endpoint remain
+available for separate clients; the recording page does not call either one.
+The sections below document those optional server transcription modes.
+
 ## Vercel hosted transcription
 
 Set `HF_TOKEN` to a Hugging Face token with **Make calls to Inference Providers**

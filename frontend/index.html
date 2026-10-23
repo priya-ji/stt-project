@@ -20,7 +20,6 @@
       <label class="field">
         <span>Language</span>
         <select id="lang">
-          <option value="auto">Auto (Hinglish / mixed)</option>
           <option value="hi">Hindi</option>
           <option value="en">English</option>
         </select>
@@ -31,7 +30,8 @@
         <div id="timer" class="timer">00:00</div>
       </div>
 
-      <p id="status" class="status">Press the mic and speak. Mix Hindi and English freely.</p>
+      <p id="status" class="status">Select your language, then press the mic to speak.</p>
+    <p class="status">Browser speech recognition · No Hugging Face credits needed. Audio may be processed by your browser’s speech service. Hindi–English mixing accuracy varies.</p>
     </section>
 
     <section class="card">
@@ -50,6 +50,6 @@
   </main>
 
   <script src="/js/api.js"></script>
-  <script src="/js/record.js"></script>
+  <script src="/js/browser-record.js"></script>
 </body>
 </html>
