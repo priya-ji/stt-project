@@ -1,5 +1,5 @@
 (() => {
-  const el = Object.fromEntries(['micBtn', 'lang', 'status', 'timer', 'transcript', 'copyBtn', 'speakBtn', 'clearBtn'].map(id => [id, document.getElementById(id)]));
+  const el = Object.fromEntries(['micBtn', 'lang', 'status', 'timer', 'transcript', 'copyBtn', 'speakBtn', 'testAudioBtn', 'clearBtn'].map(id => [id, document.getElementById(id)]));
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let session = null;
   let saving = false;
@@ -21,6 +21,7 @@
   function updateTranscriptActions() {
     const empty = !text.trim() && !interim.trim();
     el.speakBtn.disabled = Boolean(session) || saving || empty;
+    el.testAudioBtn.disabled = Boolean(session) || saving;
     el.copyBtn.disabled = empty;
   }
 
@@ -174,10 +175,10 @@
       if (!session && !saving) el.status.textContent = 'Copied to clipboard.';
     } catch (_) { el.status.textContent = 'Could not copy automatically. Select the transcript and copy it.'; }
   });
-  el.speakBtn.addEventListener('click', () => {
+  function playText(sample = null) {
     if (session || saving) return;
     if (playback) { stopPlayback(); el.status.textContent = 'Playback stopped.'; return; }
-    const spokenText = [text, interim].filter(Boolean).join(' ').trim();
+    const spokenText = sample || [text, interim].filter(Boolean).join(' ').trim();
     if (!spokenText) return; // Preserve the recording error when no transcript exists.
     if (!synth || !window.SpeechSynthesisUtterance) {
       el.status.textContent = 'Speech playback is unavailable in this browser. Try Chrome or Safari.';
@@ -230,7 +231,9 @@
       stopPlayback();
       el.status.textContent = 'Could not start playback. Check your browser’s speech voices and try again.';
     }
-  });
+  }
+  el.speakBtn.addEventListener('click', () => playText());
+  el.testAudioBtn.addEventListener('click', () => playText(el.lang.value === 'hi' ? 'नमस्ते। यह आवाज़ की जाँच है।' : 'Hello. This is an audio playback test.'));
   el.clearBtn.addEventListener('click', () => {
     if (session || saving) return;
     stopPlayback();

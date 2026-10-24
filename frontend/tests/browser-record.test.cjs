@@ -110,3 +110,12 @@ test('starting recognition does not cancel an idle speech engine', () => {
  const synth=fakeSynth(); let cancelled=0; synth.cancel=()=>cancelled++;
  const app=setup({synthesis:synth}); app.elements.micBtn.click(); assert.equal(cancelled,0);
 });
+
+
+test('Test audio exercises the real playback handler without recording or saving', () => {
+ const synth=fakeSynth(); const app=setup({synthesis:synth}); app.elements.testAudioBtn.click();
+ assert.match(synth.utterance.text,/नमस्ते/); assert.equal(app.calls.length,0);
+ synth.utterance.onstart(); synth.utterance.onend();
+ assert.equal(app.elements.status.textContent,'Playback finished.');
+ assert.equal(app.elements.transcript.textContent,'');
+});
