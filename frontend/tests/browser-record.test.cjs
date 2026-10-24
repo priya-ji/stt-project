@@ -51,3 +51,21 @@ test('stop timeout releases recording and saves confirmed text', async () => {
  for(const callback of [...app.timers.values()]) callback(); await flush();
  assert.equal(app.calls.length,1); assert.equal(app.elements.micBtn.disabled,false);
 });
+
+test('no audio capture has an actionable microphone diagnosis', () => {
+ const app=setup(); app.elements.micBtn.click(); app.recognition.onend();
+ assert.match(app.elements.status.textContent,/did not start capturing audio/);
+});
+test('sound without a result is distinguished from silence', () => {
+ const app=setup(); app.elements.micBtn.click(); app.recognition.onaudiostart(); app.recognition.onsoundstart(); app.recognition.onend();
+ assert.match(app.elements.status.textContent,/Sound was detected/);
+});
+test('unfinished draft remains visible and is not called no speech', () => {
+ const app=setup(); app.elements.micBtn.click(); app.recognition.onresult({results:[result('draft words',false)]}); app.recognition.onend();
+ assert.equal(app.elements.transcript.textContent,'draft words'); assert.match(app.elements.status.textContent,/only a draft/); assert.equal(app.calls.length,0);
+});
+test('late final result remains accepted after stop until the 20-second deadline', async () => {
+ const app=setup(); app.elements.micBtn.click(); app.elements.micBtn.click();
+ app.recognition.onresult({results:[result('delayed words',true)]}); app.recognition.onend(); await flush();
+ assert.equal(app.calls[0].body.text,'delayed words'); assert.equal(app.timers.size,0);
+});

@@ -24,13 +24,20 @@
     clearTimeout(current.deadline);
     clearInterval(current.timer);
     current.recognition.onend = current.recognition.onresult = current.recognition.onerror = current.recognition.onstart = null;
+    current.recognition.onaudiostart = current.recognition.onsoundstart = current.recognition.onspeechstart = null;
     try { current.recognition.abort(); } catch (_) {}
     // Interim hypotheses are not reliable final transcripts. Keep them visible for copying.
-    const duration = current.started ? (Date.now() - current.started) / 1000 : 0;
+    const duration = current.started ? ((current.stoppedAt || Date.now()) - current.started) / 1000 : 0;
     saving = Boolean(text.trim());
     controls(false);
     if (!saving) {
-      el.status.textContent = current.error || 'No speech recognized. Select Hindi or English and try again.';
+      el.status.textContent = current.error || (interim
+        ? 'The browser returned only a draft. Copy the text below before trying again; it has not been saved.'
+        : !current.audioStarted
+          ? 'The browser did not start capturing audio. Check Chrome microphone permission and your selected input in System Settings → Sound → Input.'
+          : !current.soundDetected
+            ? 'No sound was detected. Check that your microphone is unmuted and that the input level moves in System Settings → Sound → Input.'
+            : 'Sound was detected, but the browser returned no transcript. Check your internet connection, then try a short sentence in the selected language.');
       return;
     }
     el.status.textContent = 'Saving transcript…';
@@ -52,16 +59,26 @@
     const current = session;
     if (!current || current.stopping) return;
     current.stopping = true;
+    current.stoppedAt = Date.now();
+    clearInterval(current.timer);
     clearTimeout(current.deadline);
     el.status.textContent = 'Finishing transcription…';
     el.micBtn.disabled = true;
-    current.deadline = setTimeout(() => finish(current), 5000);
+    current.deadline = setTimeout(() => {
+      current.error = text.trim()
+        ? 'The browser timed out while finishing; the last words may be missing.'
+        : interim
+          ? 'The browser timed out. Your draft is still visible below—copy it before trying again.'
+          : 'The browser speech service did not return a result within 20 seconds. Check your internet connection and microphone input, then try again.';
+      finish(current);
+    }, 20000);
     try { current.recognition.stop(); } catch (_) { finish(current); }
   }
   function start() {
     if (saving || session || !Recognition) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
     const recognition = new Recognition();
-    const current = { recognition, language: el.lang.value, started: 0, error: '', stopping: false };
+    const current = { recognition, language: el.lang.value, started: 0, error: '', stopping: false, audioStarted: false, soundDetected: false };
     recognition.lang = current.language === 'hi' ? 'hi-IN' : 'en-IN';
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -84,6 +101,21 @@
         const seconds = Math.floor((Date.now() - current.started) / 1000);
         el.timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
       }, 250);
+    };
+    recognition.onaudiostart = () => {
+      if (session !== current) return;
+      current.audioStarted = true;
+      if (!current.stopping) el.status.textContent = 'Microphone connected. Speak a short sentence, then press Stop.';
+    };
+    recognition.onsoundstart = () => {
+      if (session !== current) return;
+      current.soundDetected = true;
+      if (!current.stopping) el.status.textContent = 'Sound detected… listening for words.';
+    };
+    recognition.onspeechstart = () => {
+      if (session !== current) return;
+      current.soundDetected = true;
+      if (!current.stopping) el.status.textContent = 'Speech detected… transcribing.';
     };
     recognition.onresult = event => {
       if (session !== current) return;
