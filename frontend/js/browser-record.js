@@ -11,15 +11,23 @@
   // Start loading the browser's asynchronously populated voice list.
   if (synth) synth.getVoices();
   function stopPlayback() {
+    const wasPlaying = Boolean(playback);
     playback = null;
     clearTimeout(playbackTimer);
     el.speakBtn.textContent = '🔊 Speak';
-    if (synth) synth.cancel();
+    if (synth && wasPlaying) synth.cancel();
+  }
+
+  function updateTranscriptActions() {
+    const empty = !text.trim() && !interim.trim();
+    el.speakBtn.disabled = Boolean(session) || saving || empty;
+    el.copyBtn.disabled = empty;
   }
 
   function render() {
     el.transcript.textContent = text + (interim ? `${text ? ' ' : ''}${interim}` : '');
     if (!text && !interim) el.transcript.textContent = 'Your words will appear here…';
+    updateTranscriptActions();
   }
   function controls(active) {
     el.micBtn.classList.toggle('live', active);
@@ -28,6 +36,7 @@
     el.lang.disabled = active || saving;
     el.clearBtn.disabled = active || saving;
     el.micBtn.disabled = saving || !Recognition;
+    updateTranscriptActions();
   }
   async function finish(current) {
     if (session !== current) return;
@@ -166,11 +175,10 @@
     } catch (_) { el.status.textContent = 'Could not copy automatically. Select the transcript and copy it.'; }
   });
   el.speakBtn.addEventListener('click', () => {
-    if (session) { el.status.textContent = 'Stop recording before playing your transcript.'; return; }
-    if (saving) { el.status.textContent = 'Please wait for saving to finish, then press Speak.'; return; }
+    if (session || saving) return;
     if (playback) { stopPlayback(); el.status.textContent = 'Playback stopped.'; return; }
     const spokenText = [text, interim].filter(Boolean).join(' ').trim();
-    if (!spokenText) { el.status.textContent = 'Record some speech first, then press Speak to hear your transcript.'; return; }
+    if (!spokenText) return; // Preserve the recording error when no transcript exists.
     if (!synth || !window.SpeechSynthesisUtterance) {
       el.status.textContent = 'Speech playback is unavailable in this browser. Try Chrome or Safari.';
       return;

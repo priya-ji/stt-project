@@ -92,3 +92,21 @@ test('Speak surfaces synthesis errors and can stop active audio', async () => {
  synth.utterance.onerror({error:'audio-hardware'}); assert.match(app.elements.status.textContent,/audio-hardware/);
  app.elements.speakBtn.click(); app.elements.speakBtn.click(); assert.equal(app.elements.status.textContent,'Playback stopped.');
 });
+
+
+test('empty Speak cannot overwrite the recognition failure', () => {
+ const app=setup(); app.elements.micBtn.click(); app.recognition.onerror({error:'network'});
+ const error=app.elements.status.textContent;
+ assert.equal(app.elements.speakBtn.disabled,true);
+ app.elements.speakBtn.click(); assert.equal(app.elements.status.textContent,error);
+});
+test('playback is unavailable during capture and enabled after a transcript completes', async () => {
+ const app=setup(); assert.equal(app.elements.speakBtn.disabled,true);
+ app.elements.micBtn.click(); app.recognition.onresult({results:[result('hello',true)]});
+ assert.equal(app.elements.speakBtn.disabled,true);
+ app.recognition.onend(); await flush(); assert.equal(app.elements.speakBtn.disabled,false);
+});
+test('starting recognition does not cancel an idle speech engine', () => {
+ const synth=fakeSynth(); let cancelled=0; synth.cancel=()=>cancelled++;
+ const app=setup({synthesis:synth}); app.elements.micBtn.click(); assert.equal(cancelled,0);
+});
