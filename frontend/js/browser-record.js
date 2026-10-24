@@ -5,6 +5,17 @@
   let saving = false;
   let text = '';
   let interim = '';
+  let playback = null;
+  let playbackTimer = null;
+  const synth = window.speechSynthesis;
+  // Start loading the browser's asynchronously populated voice list.
+  if (synth) synth.getVoices();
+  function stopPlayback() {
+    playback = null;
+    clearTimeout(playbackTimer);
+    el.speakBtn.textContent = '🔊 Speak';
+    if (synth) synth.cancel();
+  }
 
   function render() {
     el.transcript.textContent = text + (interim ? `${text ? ' ' : ''}${interim}` : '');
@@ -76,7 +87,7 @@
   }
   function start() {
     if (saving || session || !Recognition) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopPlayback();
     const recognition = new Recognition();
     const current = { recognition, language: el.lang.value, started: 0, error: '', stopping: false, audioStarted: false, soundDetected: false };
     recognition.lang = current.language === 'hi' ? 'hi-IN' : 'en-IN';
@@ -155,14 +166,66 @@
     } catch (_) { el.status.textContent = 'Could not copy automatically. Select the transcript and copy it.'; }
   });
   el.speakBtn.addEventListener('click', () => {
-    if (session || !text || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = /[ऀ-ॿ]/.test(text) ? 'hi-IN' : 'en-IN';
-    window.speechSynthesis.speak(utterance);
+    if (session) { el.status.textContent = 'Stop recording before playing your transcript.'; return; }
+    if (saving) { el.status.textContent = 'Please wait for saving to finish, then press Speak.'; return; }
+    if (playback) { stopPlayback(); el.status.textContent = 'Playback stopped.'; return; }
+    const spokenText = [text, interim].filter(Boolean).join(' ').trim();
+    if (!spokenText) { el.status.textContent = 'Record some speech first, then press Speak to hear your transcript.'; return; }
+    if (!synth || !window.SpeechSynthesisUtterance) {
+      el.status.textContent = 'Speech playback is unavailable in this browser. Try Chrome or Safari.';
+      return;
+    }
+    const lang = /[ऀ-ॿ]/.test(spokenText) ? 'hi-IN' : 'en-IN';
+    const voices = synth.getVoices();
+    const voice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === lang.toLowerCase())
+      || voices.find(v => v.lang.toLowerCase().startsWith(lang.slice(0, 2)));
+    if (voices.length && !voice) {
+      el.status.textContent = `No ${lang === 'hi-IN' ? 'Hindi' : 'English'} playback voice is available. Add a voice for this language in your device’s speech settings, then reopen this page.`;
+      return;
+    }
+    stopPlayback();
+    const utterance = new window.SpeechSynthesisUtterance(spokenText);
+    playback = utterance; // Keep a reference until playback ends.
+    utterance.lang = lang;
+    if (voice) utterance.voice = voice;
+    utterance.volume = 1;
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    el.speakBtn.textContent = '⏹ Stop audio';
+    el.status.textContent = 'Starting playback…';
+    utterance.onstart = () => {
+      if (playback !== utterance) return;
+      clearTimeout(playbackTimer);
+      el.status.textContent = 'Reading your transcript aloud…';
+    };
+    utterance.onend = () => {
+      if (playback !== utterance) return;
+      stopPlayback();
+      el.status.textContent = 'Playback finished.';
+    };
+    utterance.onerror = event => {
+      if (playback !== utterance) return;
+      stopPlayback();
+      el.status.textContent = ['language-unavailable', 'voice-unavailable'].includes(event.error)
+        ? 'The playback voice is unavailable. Add a voice for this language in your device’s speech settings and try again.'
+        : `Playback failed (${event.error || 'unknown'}). Check your sound output and try again.`;
+    };
+    playbackTimer = setTimeout(() => {
+      if (playback !== utterance) return;
+      stopPlayback();
+      el.status.textContent = 'Playback did not start. Check your device’s speech voices and sound output, then press Speak again.';
+    }, 10000);
+    try {
+      synth.resume();
+      synth.speak(utterance);
+    } catch (_) {
+      stopPlayback();
+      el.status.textContent = 'Could not start playback. Check your browser’s speech voices and try again.';
+    }
   });
   el.clearBtn.addEventListener('click', () => {
     if (session || saving) return;
+    stopPlayback();
     text = interim = '';
     render();
     el.status.textContent = 'Cleared. Press the mic to start again.';

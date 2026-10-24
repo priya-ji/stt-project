@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
-function setup({supported = true, failSave = false} = {}) {
+function setup({supported = true, failSave = false, synthesis = null} = {}) {
   const elements = {}, calls = [], timers = new Map();
   let recognition, next = 0;
   class Recognition {
@@ -13,7 +13,7 @@ function setup({supported = true, failSave = false} = {}) {
   }
   const context = {
     document: { getElementById(id) { return elements[id] ||= { value:'hi', textContent:'', classList:{ toggle() {} }, setAttribute() {}, addEventListener(name, fn) { this[name] = fn; } }; } },
-    window: supported ? { webkitSpeechRecognition: Recognition } : {},
+    window: { ...(supported ? { webkitSpeechRecognition: Recognition } : {}), ...(synthesis ? { speechSynthesis: synthesis, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } } } : {}) },
     API: { async request(path, options) { calls.push({path, body:JSON.parse(options.body)}); if (failSave) throw Error('offline'); return {id:3}; } },
     AbortSignal, Date, String, Boolean, Object,
     setTimeout(fn) { const id = ++next; timers.set(id, fn); return id; }, clearTimeout(id) { timers.delete(id); },
@@ -68,4 +68,27 @@ test('late final result remains accepted after stop until the 20-second deadline
  const app=setup(); app.elements.micBtn.click(); app.elements.micBtn.click();
  app.recognition.onresult({results:[result('delayed words',true)]}); app.recognition.onend(); await flush();
  assert.equal(app.calls[0].body.text,'delayed words'); assert.equal(app.timers.size,0);
+});
+
+function fakeSynth(voices = [{lang:'hi-IN'}]) {
+ return { utterance:null, resumed:false, getVoices:()=>voices, cancel(){}, resume(){this.resumed=true;}, speak(u){this.utterance=u;} };
+}
+async function withTranscript(synthesis) {
+ const app=setup({synthesis}); app.elements.micBtn.click();
+ app.recognition.onresult({results:[result('हेलो',true)]}); app.recognition.onend(); await flush(); return app;
+}
+test('Speak selects Hindi voice, resumes playback and resets after completion', async () => {
+ const synth=fakeSynth(); const app=await withTranscript(synth); app.elements.speakBtn.click();
+ assert.equal(synth.utterance.text,'हेलो'); assert.equal(synth.utterance.voice.lang,'hi-IN'); assert.equal(synth.resumed,true);
+ synth.utterance.onstart(); assert.match(app.elements.status.textContent,/Reading/);
+ synth.utterance.onend(); assert.equal(app.elements.speakBtn.textContent,'🔊 Speak');
+});
+test('missing Hindi voice is explained instead of silently failing', async () => {
+ const synth=fakeSynth([{lang:'en-US'}]); const app=await withTranscript(synth); app.elements.speakBtn.click();
+ assert.match(app.elements.status.textContent,/No Hindi playback voice/); assert.equal(synth.utterance,null);
+});
+test('Speak surfaces synthesis errors and can stop active audio', async () => {
+ const synth=fakeSynth(); const app=await withTranscript(synth); app.elements.speakBtn.click();
+ synth.utterance.onerror({error:'audio-hardware'}); assert.match(app.elements.status.textContent,/audio-hardware/);
+ app.elements.speakBtn.click(); app.elements.speakBtn.click(); assert.equal(app.elements.status.textContent,'Playback stopped.');
 });
