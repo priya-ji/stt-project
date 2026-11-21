@@ -1,5 +1,9 @@
 :root {
+<<<<<<< HEAD
   --bg: #ffffff;
+=======
+  --bg: #f5f7fb;
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
   --card: #ffffff;
   --text: #1d2433;
   --muted: #6b7385;
@@ -13,7 +17,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+<<<<<<< HEAD
     --bg: #000000;
+=======
+    --bg: #0f1420;
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
     --card: #171e2e;
     --text: #e6e9f2;
     --muted: #9aa3b8;
@@ -22,7 +30,11 @@
 }
 
 :root[data-theme="dark"] {
+<<<<<<< HEAD
   --bg: #000000;
+=======
+  --bg: #0f1420;
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
   --card: #171e2e;
   --text: #e6e9f2;
   --muted: #9aa3b8;

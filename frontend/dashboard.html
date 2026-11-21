@@ -8,16 +8,23 @@
 </head>
 <body>
   <header class="topbar">
+<<<<<<< HEAD
      <button id="themeToggle" type="button">
     Light mode 
   </button>
+=======
+    <button id="themeToggle" type="button">Light mode</button>
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
     <div class="brand">🎙️ Speech to Text</div>
     <nav>
       <a href="/">Record</a>
       <a href="/dashboard.html" class="active">Dashboard</a>
     </nav>
   </header>
+<<<<<<< HEAD
  
+=======
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
 
   <main class="container">
     <section id="stats" class="stats"></section>
@@ -74,10 +81,17 @@
   <script>
     const themeToggle = document.querySelector("#themeToggle");
     const savedTheme = localStorage.getItem("theme");
+<<<<<<< HEAD
     document.documentElement.dataset.theme = savedTheme || "light";
 
     function updateThemeButton() {
       themeToggle.textContent = document.documentElement.dataset.theme === "light" ? "Night mode" : "Light mode";
+=======
+    if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+    function updateThemeButton() {
+      themeToggle.textContent = document.documentElement.dataset.theme === "light" ? "Dark mode" : "Light mode";
+>>>>>>> f487325c2bca5bf44ab1e717511361d9d5cb8b18
     }
 
     themeToggle.addEventListener("click", () => {
