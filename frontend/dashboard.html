@@ -71,5 +71,22 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script>
+    const themeToggle = document.querySelector("#themeToggle");
+    const savedTheme = localStorage.getItem("theme");
+    document.documentElement.dataset.theme = savedTheme || "light";
+
+    function updateThemeButton() {
+      themeToggle.textContent = document.documentElement.dataset.theme === "light" ? "Night mode" : "Light mode";
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const nextTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      document.documentElement.dataset.theme = nextTheme;
+      localStorage.setItem("theme", nextTheme);
+      updateThemeButton();
+    });
+    updateThemeButton();
+  </script>
 </body>
 </html>

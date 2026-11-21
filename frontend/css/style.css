@@ -1,5 +1,5 @@
 :root {
-  --bg: #f5f7fb;
+  --bg: #ffffff;
   --card: #ffffff;
   --text: #1d2433;
   --muted: #6b7385;
@@ -13,7 +13,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1420;
+    --bg: #000000;
     --card: #171e2e;
     --text: #e6e9f2;
     --muted: #9aa3b8;
@@ -22,7 +22,7 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0f1420;
+  --bg: #000000;
   --card: #171e2e;
   --text: #e6e9f2;
   --muted: #9aa3b8;
@@ -205,21 +205,4 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
   .item { flex-direction: column; }
   .item-actions { flex-direction: row; }
   .mic { width: 88px; height: 88px; }
-}
-
-
-body {
-  backendground: #6d4c4c
-  color: white;
-  transition: 0.3;
-}
-
-body.light_theme {
-  bachgrond: #ffffff:
-  color: #050202
-}
-
-body.light-theme .card{
-  backgrount: #f8f1f1
-  color: #050202
 }
