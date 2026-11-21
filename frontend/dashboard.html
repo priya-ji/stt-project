@@ -8,6 +8,7 @@
 </head>
 <body>
   <header class="topbar">
+    <button id="themeToggle" type="button">Light mode</button>
     <div class="brand">🎙️ Speech to Text</div>
     <nav>
       <a href="/">Record</a>
@@ -67,5 +68,22 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script>
+    const themeToggle = document.querySelector("#themeToggle");
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+    function updateThemeButton() {
+      themeToggle.textContent = document.documentElement.dataset.theme === "light" ? "Dark mode" : "Light mode";
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const nextTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      document.documentElement.dataset.theme = nextTheme;
+      localStorage.setItem("theme", nextTheme);
+      updateThemeButton();
+    });
+    updateThemeButton();
+  </script>
 </body>
 </html>
